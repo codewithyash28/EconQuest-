@@ -1,8 +1,21 @@
-import { GoogleGenAI, Type, ThinkingLevel, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import firebaseConfig from '../../firebase-applet-config.json';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+let aiInstance: GoogleGenAI | null = null;
 
-export const chatWithGemini = async (message: string, history: any[] = []) => {
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY || firebaseConfig.apiKey;
+    if (!apiKey) {
+      throw new Error("Gemini API Key is missing. Please configure it in your environment or firebase-applet-config.json.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
+
+export const chatWithGemini = async (message: string, _history: any[] = []) => {
+  const ai = getAI();
   const chat = ai.chats.create({
     model: "gemini-3-flash-preview",
     config: {
@@ -10,14 +23,12 @@ export const chatWithGemini = async (message: string, history: any[] = []) => {
     },
   });
 
-  // Convert history to the format expected by the SDK if needed, 
-  // but for simplicity we'll just send the message for now or use the chat object properly.
-  // The SDK's chat object maintains history internally if you reuse it.
   const response = await chat.sendMessage({ message });
   return response.text;
 };
 
 export const analyzeEconomicGraph = async (base64Image: string, prompt: string) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: {
@@ -31,8 +42,7 @@ export const analyzeEconomicGraph = async (base64Image: string, prompt: string) 
 };
 
 export const analyzeEconomicVideo = async (videoUri: string, prompt: string) => {
-  // Note: Video analysis usually requires a File API upload or a URI.
-  // For this demo, we'll assume the user provides a URI or we use a placeholder logic.
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
     contents: `Analyze this video content for economic concepts: ${videoUri}. ${prompt}`
@@ -41,6 +51,7 @@ export const analyzeEconomicVideo = async (videoUri: string, prompt: string) => 
 };
 
 export const getQuickExplanation = async (concept: string) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-lite-preview",
     contents: `Give a 2-sentence explanation of the economic concept: ${concept}`,
