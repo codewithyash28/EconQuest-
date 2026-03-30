@@ -1,0 +1,179 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required, immutable) - Firebase Auth UID
+    //   - displayName: string (optional)
+    //   - email: string (optional, isValidEmail)
+    //   - xp: number (required, isPositive)
+    //   - coins: number (required, isPositive)
+    //   - streak: number (optional)
+    //   - lastLogin: timestamp (optional)
+    //   - completedQuests: list (optional)
+    //   - ownedItems: list (optional)
+    //   - achievements: list (optional)
+    //
+    // Collection: quests
+    // Document ID: {questId}
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required, size < 100)
+    //   - category: string (required, enum)
+    //   - description: string (required, size < 1000)
+    //   - xpReward: number (required)
+    //   - coinReward: number (required)
+    //   - difficulty: string (required, enum)
+    //
+    // Collection: shopItems
+    // Document ID: {itemId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, size < 50)
+    //   - price: number (required, isPositive)
+    //   - type: string (required, enum)
+    //   - description: string (required, size < 500)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "codewithyash28@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isPositive(val) {
+      return val is number && val >= 0;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'xp', 'coins']) &&
+             data.uid is string &&
+             isPositive(data.xp) &&
+             isPositive(data.coins) &&
+             (data.xp < 1000000) && (data.coins < 1000000);
+    }
+
+    function isValidQuest(data) {
+      return data.keys().hasAll(['id', 'title', 'category']) &&
+             data.title is string && data.title.size() < 100 &&
+             data.description is string && data.description.size() < 1000;
+    }
+
+    function isValidShopItem(data) {
+      return data.keys().hasAll(['id', 'name', 'price']) &&
+             data.name is string && data.name.size() < 50 &&
+             isPositive(data.price);
+    }
+
+    function isValidReviewItem(data) {
+      return data.keys().hasAll(['userId', 'questionId', 'questId', 'nextReview']) &&
+             data.userId is string &&
+             data.questionId is string &&
+             data.questId is string &&
+             data.nextReview is string;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['questId', 'userId', 'rating']) &&
+             data.questId is string &&
+             data.userId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5;
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['userId', 'type', 'timestamp']) &&
+             data.userId is string &&
+             data.type is string &&
+             data.timestamp is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data) &&
+                    request.resource.data.uid == resource.data.uid;
+      allow delete: if isAdmin();
+    }
+
+    match /quests/{questId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /shopItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /reviewItems/{itemId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidReviewItem(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidReviewItem(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /questFeedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidFeedback(request.resource.data);
+    }
+
+    match /user_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidEvent(request.resource.data);
+    }
+
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.members || isAdmin());
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.createdBy);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]) || isAdmin());
+        allow create: if isAuthenticated() && (get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]));
+      }
+    }
+
+    match /metadata/global_stats {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated(); // Allow system or other users (squad) to nudge
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

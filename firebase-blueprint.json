@@ -1,0 +1,186 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Stores user progress, XP, coins, and achievements.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "xp": { "type": "integer", "description": "Experience points" },
+        "coins": { "type": "integer", "description": "In-game currency" },
+        "streak": { "type": "integer", "description": "Daily login streak" },
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "completedQuests": { "type": "array", "items": { "type": "string" } },
+        "ownedItems": { "type": "array", "items": { "type": "string" } },
+        "achievements": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "xp", "coins"]
+    },
+    "quests": {
+      "title": "Quest",
+      "description": "A learning module with lessons and quizzes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["Microeconomics", "Macroeconomics", "Personal Finance", "Behavioral Economics"] },
+        "description": { "type": "string" },
+        "xpReward": { "type": "integer" },
+        "coinReward": { "type": "integer" },
+        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] }
+      },
+      "required": ["id", "title", "category"]
+    },
+    "shopItems": {
+      "title": "Shop Item",
+      "description": "Cosmetic upgrades or badges.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "integer" },
+        "type": { "type": "string", "enum": ["Badge", "Avatar", "Theme"] },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name", "price"]
+    },
+    "groups": {
+      "title": "Study Group",
+      "description": "A group of students studying together.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "challenges": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "name", "createdBy"]
+    },
+    "messages": {
+      "title": "Group Message",
+      "description": "A message sent within a study group.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "senderId", "text"]
+    },
+    "reviewItems": {
+      "title": "Review Item",
+      "description": "An item for spaced repetition review.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "questionId": { "type": "string" },
+        "questId": { "type": "string" },
+        "nextReview": { "type": "string", "format": "date-time" },
+        "interval": { "type": "integer" },
+        "easeFactor": { "type": "number" },
+        "repetitions": { "type": "integer" }
+      },
+      "required": ["userId", "questionId", "questId", "nextReview"]
+    },
+    "questFeedback": {
+      "title": "Quest Feedback",
+      "description": "User feedback for a quest.",
+      "type": "object",
+      "properties": {
+        "questId": { "type": "string" },
+        "userId": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["questId", "userId", "rating"]
+    },
+    "user_events": {
+      "title": "User Event",
+      "description": "An analytics event for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "timestamp"]
+    },
+    "metadata": {
+      "title": "System Metadata",
+      "description": "Global system statistics and configuration.",
+      "type": "object",
+      "properties": {
+        "activeStudents": { "type": "integer" },
+        "questsCompleted": { "type": "integer" },
+        "avgRating": { "type": "number" },
+        "squadsFormed": { "type": "integer" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      }
+    },
+    "notifications": {
+      "title": "Notification",
+      "description": "An in-app notification for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["streak", "quest", "squad", "system"] },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "users",
+      "description": "User profile and progress"
+    },
+    "/quests/{questId}": {
+      "schema": "quests",
+      "description": "Available quests"
+    },
+    "/shopItems/{itemId}": {
+      "schema": "shopItems",
+      "description": "Items in the shop"
+    },
+    "/groups/{groupId}": {
+      "schema": "groups",
+      "description": "Study groups"
+    },
+    "/groups/{groupId}/messages/{messageId}": {
+      "schema": "messages",
+      "description": "Messages within a group"
+    },
+    "/reviewItems/{itemId}": {
+      "schema": "reviewItems",
+      "description": "Spaced repetition review items"
+    },
+    "/questFeedback/{feedbackId}": {
+      "schema": "questFeedback",
+      "description": "User feedback for quests"
+    },
+    "/user_events/{eventId}": {
+      "schema": "user_events",
+      "description": "User analytics events"
+    },
+    "/metadata/{docId}": {
+      "schema": "metadata",
+      "description": "Global system metadata"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notifications",
+      "description": "User notifications"
+    }
+  }
+}
